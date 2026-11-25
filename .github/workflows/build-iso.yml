@@ -80,14 +80,16 @@ jobs:
           mkdir -p config/hooks/normal
           cat > config/hooks/normal/010-prepare-isolinux.hook.chroot <<'EOF'
           #!/bin/sh
-          set -e
-          mkdir -p /root/isolinux
-          BIN="$(find /usr/lib -type f -name isolinux.bin -print -quit)"
-          MENU="$(find /usr/lib -type f -name vesamenu.c32 -print -quit)"
-          test -n "$BIN"
-          test -n "$MENU"
-          cp "$BIN" /root/isolinux/isolinux.bin
-          cp "$MENU" /root/isolinux/vesamenu.c32
+          set -eu
+          mkdir -p /usr/lib/syslinux
+          ISOLINUX_BIN="$(find /usr/lib -type f -name isolinux.bin -print -quit)"
+          VESAMENU="$(find /usr/lib -type f -name vesamenu.c32 -print -quit)"
+          test -n "$ISOLINUX_BIN"
+          test -n "$VESAMENU"
+          install -m 0644 "$ISOLINUX_BIN" /usr/lib/syslinux/isolinux.bin
+          install -m 0644 "$VESAMENU" /usr/lib/syslinux/vesamenu.c32
+          test -s /usr/lib/syslinux/isolinux.bin
+          test -s /usr/lib/syslinux/vesamenu.c32
           EOF
           chmod +x config/hooks/normal/010-prepare-isolinux.hook.chroot
 
