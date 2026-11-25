@@ -14,64 +14,42 @@ jobs:
   build:
     name: Build Debian 13 Live ISO (x86_64)
     runs-on: ubuntu-24.04
-    # Use Debian Trixie's own live-build package and bootloader assets.
-    # The previous Ubuntu-host build mixed Ubuntu live-build with a Debian
-    # Trixie target and repeatedly failed in binary_syslinux.
-    container:
-      image: debian:trixie
     timeout-minutes: 360
     steps:
       - name: Check out PocioSoft source
         uses: actions/checkout@v4
 
-      - name: Install Debian Live build tools
+      - name: Build ISO in privileged Debian Trixie container
+        shell: bash
         run: |
-          set -eux
-          apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            live-build \
-            debootstrap \
-            squashfs-tools \
-            xorriso \
-            isolinux \
-            syslinux-common \
-            ca-certificates
-
-      - name: Verify Debian bootloader assets before building
-        run: |
-          set -eux
-          dpkg-query -W live-build isolinux syslinux-common
-          test -s /usr/lib/ISOLINUX/isolinux.bin
-          test -s /usr/lib/syslinux/modules/bios/vesamenu.c32
-          test -e /usr/share/live/build/bootloaders/isolinux/isolinux.bin
-          test -e /usr/share/live/build/bootloaders/syslinux_common/vesamenu.c32
-          readlink -f /usr/share/live/build/bootloaders/isolinux/isolinux.bin
-          readlink -f /usr/share/live/build/bootloaders/syslinux_common/vesamenu.c32
-
-      - name: Configure Debian 13 Live
-        run: |
-          set -eux
-          lb config \
-            --mode debian \
-            --initsystem systemd \
-            --distribution trixie \
-            --architectures amd64 \
-            --binary-images iso-hybrid \
-            --archive-areas "main contrib non-free non-free-firmware" \
-            --apt-recommends false \
-            --firmware-chroot false \
-            --security false \
-            --iso-application "PocioSoft 2026" \
-            --iso-volume "POCIOSOFT_2026"
-
-      - name: Add desktop and utility packages
-        run: |
-          set -eux
-          mkdir -p config/package-lists config/includes.chroot/etc/apt/sources.list.d
-          cat > config/includes.chroot/etc/apt/sources.list.d/debian-security.list <<'EOF'
+          set -euo pipefail
+          docker pull debian:trixie
+          docker run --privileged --rm \
+            --volume "$GITHUB_WORKSPACE:/work" \
+            --workdir /work \
+            debian:trixie bash -euxo pipefail -c '
+              apt-get update
+              DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+                live-build debootstrap squashfs-tools xorriso isolinux syslinux-common \
+                ca-certificates
+              dpkg-query -W live-build isolinux syslinux-common
+              lb config \
+                --mode debian \
+                --initsystem systemd \
+                --distribution trixie \
+                --architectures amd64 \
+                --binary-images iso-hybrid \
+                --archive-areas "main contrib non-free non-free-firmware" \
+                --apt-recommends false \
+                --firmware-chroot false \
+                --security false \
+                --iso-application "PocioSoft 2026" \
+                --iso-volume "POCIOSOFT_2026"
+              mkdir -p config/package-lists config/includes.chroot/etc/apt/sources.list.d
+              cat > config/includes.chroot/etc/apt/sources.list.d/debian-security.list <<EOF
           deb http://security.debian.org/debian-security trixie-security main contrib non-free non-free-firmware
           EOF
-          cat > config/package-lists/pociosoft.list.chroot <<'EOF'
+              cat > config/package-lists/pociosoft.list.chroot <<EOF
           task-lxqt-desktop
           firefox-esr
           network-manager
@@ -98,21 +76,14 @@ jobs:
           intel-microcode
           amd64-microcode
           EOF
-
-      - name: Build ISO image
-        run: |
-          set -eux
-          lb build
-
-      - name: Validate generated ISO
-        run: |
-          set -eux
-          ISO="$(find . -maxdepth 1 -type f -name '*.iso' -print -quit)"
-          test -n "$ISO"
-          test -s "$ISO"
-          xorriso -indev "$ISO" -toc
-          ls -lh "$ISO"
-          sha256sum "$ISO" | tee "$ISO.sha256"
+              lb build
+              ISO="$(find . -maxdepth 1 -type f -name "*.iso" -print -quit)"
+              test -n "$ISO"
+              test -s "$ISO"
+              xorriso -indev "$ISO" -toc
+              sha256sum "$ISO" > "$ISO.sha256"
+              ls -lh "$ISO" "$ISO.sha256"
+            '
 
       - name: Upload bootable ISO artifact
         uses: actions/upload-artifact@v4
