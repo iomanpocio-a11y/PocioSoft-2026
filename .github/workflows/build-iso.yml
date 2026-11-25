@@ -9,7 +9,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
 
 jobs:
   build:
@@ -64,6 +63,7 @@ jobs:
           wget
           htop
           calamares
+          isolinux
           live-config-systemd
           firmware-linux
           firmware-iwlwifi
@@ -73,25 +73,6 @@ jobs:
           intel-microcode
           amd64-microcode
           EOF
-
-      - name: Add ISOLINUX chroot hook
-        run: |
-          set -e
-          mkdir -p config/hooks/normal
-          cat > config/hooks/normal/010-prepare-isolinux.hook.chroot <<'EOF'
-          #!/bin/sh
-          set -eu
-          mkdir -p /usr/lib/syslinux
-          ISOLINUX_BIN="$(find /usr/lib -type f -name isolinux.bin -print -quit)"
-          VESAMENU="$(find /usr/lib -type f -name vesamenu.c32 -print -quit)"
-          test -n "$ISOLINUX_BIN"
-          test -n "$VESAMENU"
-          install -m 0644 "$ISOLINUX_BIN" /usr/lib/syslinux/isolinux.bin
-          install -m 0644 "$VESAMENU" /usr/lib/syslinux/vesamenu.c32
-          test -s /usr/lib/syslinux/isolinux.bin
-          test -s /usr/lib/syslinux/vesamenu.c32
-          EOF
-          chmod +x config/hooks/normal/010-prepare-isolinux.hook.chroot
 
       - name: Build ISO image
         run: sudo lb build
@@ -112,15 +93,3 @@ jobs:
           path: ${{ env.ISO_PATH }}
           if-no-files-found: error
           retention-days: 14
-
-  auto-rerun:
-    name: Automatically retry failed build (maximum 2 retries)
-    needs: build
-    if: failure() && github.run_attempt < 3
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Re-run failed jobs
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RUN_ID: ${{ github.run_id }}
-        run: gh run rerun "$RUN_ID" --failed
