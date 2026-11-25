@@ -67,7 +67,9 @@ jobs:
           wget
           htop
           calamares
+          live-config
           live-config-systemd
+          user-setup
           firmware-linux
           firmware-iwlwifi
           firmware-realtek
