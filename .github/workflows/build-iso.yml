@@ -73,25 +73,25 @@ jobs:
           amd64-microcode
           EOF
 
-      - name: Stage ISOLINUX assets inside live-build chroot
+      - name: Stage ISOLINUX assets for post-package chroot include
         run: |
           set -euo pipefail
-          mkdir -p config/includes.chroot/root/isolinux
+          mkdir -p config/includes.chroot_after_packages/root/isolinux
           ISOLINUX_BIN="$(dpkg-query -L isolinux | grep -m1 '/isolinux\.bin$')"
           VESAMENU="$(dpkg-query -L syslinux-common | grep -m1 '/vesamenu\.c32$')"
           test -f "$ISOLINUX_BIN"
           test -f "$VESAMENU"
-          install -m 0644 "$ISOLINUX_BIN" config/includes.chroot/root/isolinux/isolinux.bin
-          install -m 0644 "$VESAMENU" config/includes.chroot/root/isolinux/vesamenu.c32
+          install -m 0644 "$ISOLINUX_BIN" config/includes.chroot_after_packages/root/isolinux/isolinux.bin
+          install -m 0644 "$VESAMENU" config/includes.chroot_after_packages/root/isolinux/vesamenu.c32
           for module in ldlinux.c32 libcom32.c32 libutil.c32 libmenu.c32 libgpl.c32; do
             source="$(dpkg-query -L syslinux-common | grep -m1 "/$module$" || true)"
             if [ -n "$source" ] && [ -f "$source" ]; then
-              install -m 0644 "$source" "config/includes.chroot/root/isolinux/$module"
+              install -m 0644 "$source" "config/includes.chroot_after_packages/root/isolinux/$module"
             fi
           done
-          test -s config/includes.chroot/root/isolinux/isolinux.bin
-          test -s config/includes.chroot/root/isolinux/vesamenu.c32
-          ls -l config/includes.chroot/root/isolinux
+          test -s config/includes.chroot_after_packages/root/isolinux/isolinux.bin
+          test -s config/includes.chroot_after_packages/root/isolinux/vesamenu.c32
+          ls -l config/includes.chroot_after_packages/root/isolinux
 
       - name: Build ISO image
         run: sudo lb build
