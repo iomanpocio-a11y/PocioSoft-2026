@@ -27,6 +27,7 @@ jobs:
       - name: Configure Debian 13 Live
         run: |
           lb config \
+            --mode debian \
             --distribution trixie \
             --architectures amd64 \
             --binary-images iso-hybrid \
