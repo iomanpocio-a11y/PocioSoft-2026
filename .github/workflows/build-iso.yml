@@ -12,20 +12,45 @@ permissions:
 
 jobs:
   build:
-    name: Build Debian Live ISO (x86_64)
+    name: Build Debian 13 Live ISO (x86_64)
     runs-on: ubuntu-24.04
+    # Use Debian Trixie's own live-build package and bootloader assets.
+    # The previous Ubuntu-host build mixed Ubuntu live-build with a Debian
+    # Trixie target and repeatedly failed in binary_syslinux.
+    container:
+      image: debian:trixie
     timeout-minutes: 360
     steps:
       - name: Check out PocioSoft source
         uses: actions/checkout@v4
 
-      - name: Install live-build
+      - name: Install Debian Live build tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y live-build debootstrap squashfs-tools xorriso isolinux syslinux-common
+          set -eux
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            live-build \
+            debootstrap \
+            squashfs-tools \
+            xorriso \
+            isolinux \
+            syslinux-common \
+            ca-certificates
+
+      - name: Verify Debian bootloader assets before building
+        run: |
+          set -eux
+          dpkg-query -W live-build isolinux syslinux-common
+          test -s /usr/lib/ISOLINUX/isolinux.bin
+          test -s /usr/lib/syslinux/modules/bios/vesamenu.c32
+          test -e /usr/share/live/build/bootloaders/isolinux/isolinux.bin
+          test -e /usr/share/live/build/bootloaders/syslinux_common/vesamenu.c32
+          readlink -f /usr/share/live/build/bootloaders/isolinux/isolinux.bin
+          readlink -f /usr/share/live/build/bootloaders/syslinux_common/vesamenu.c32
 
       - name: Configure Debian 13 Live
         run: |
+          set -eux
           lb config \
             --mode debian \
             --initsystem systemd \
@@ -41,6 +66,7 @@ jobs:
 
       - name: Add desktop and utility packages
         run: |
+          set -eux
           mkdir -p config/package-lists config/includes.chroot/etc/apt/sources.list.d
           cat > config/includes.chroot/etc/apt/sources.list.d/debian-security.list <<'EOF'
           deb http://security.debian.org/debian-security trixie-security main contrib non-free non-free-firmware
@@ -73,42 +99,27 @@ jobs:
           amd64-microcode
           EOF
 
-      - name: Stage ISOLINUX assets for post-package chroot include
-        run: |
-          set -euo pipefail
-          mkdir -p config/includes.chroot_after_packages/root/isolinux
-          ISOLINUX_BIN="$(dpkg-query -L isolinux | grep -m1 '/isolinux\.bin$')"
-          VESAMENU="$(dpkg-query -L syslinux-common | grep -m1 '/vesamenu\.c32$')"
-          test -f "$ISOLINUX_BIN"
-          test -f "$VESAMENU"
-          install -m 0644 "$ISOLINUX_BIN" config/includes.chroot_after_packages/root/isolinux/isolinux.bin
-          install -m 0644 "$VESAMENU" config/includes.chroot_after_packages/root/isolinux/vesamenu.c32
-          for module in ldlinux.c32 libcom32.c32 libutil.c32 libmenu.c32 libgpl.c32; do
-            source="$(dpkg-query -L syslinux-common | grep -m1 "/$module$" || true)"
-            if [ -n "$source" ] && [ -f "$source" ]; then
-              install -m 0644 "$source" "config/includes.chroot_after_packages/root/isolinux/$module"
-            fi
-          done
-          test -s config/includes.chroot_after_packages/root/isolinux/isolinux.bin
-          test -s config/includes.chroot_after_packages/root/isolinux/vesamenu.c32
-          ls -l config/includes.chroot_after_packages/root/isolinux
-
       - name: Build ISO image
-        run: sudo lb build
+        run: |
+          set -eux
+          lb build
 
       - name: Validate generated ISO
         run: |
+          set -eux
           ISO="$(find . -maxdepth 1 -type f -name '*.iso' -print -quit)"
           test -n "$ISO"
           test -s "$ISO"
           xorriso -indev "$ISO" -toc
-          echo "ISO_PATH=$ISO" >> "$GITHUB_ENV"
           ls -lh "$ISO"
+          sha256sum "$ISO" | tee "$ISO.sha256"
 
       - name: Upload bootable ISO artifact
         uses: actions/upload-artifact@v4
         with:
           name: PocioSoft-2026-x64-ISO
-          path: ${{ env.ISO_PATH }}
+          path: |
+            *.iso
+            *.iso.sha256
           if-no-files-found: error
           retention-days: 14
