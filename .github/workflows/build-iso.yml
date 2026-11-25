@@ -77,15 +77,19 @@ jobs:
         run: |
           set -eux
           sudo mkdir -p /root/isolinux
-          ISOLINUX_BIN="$(find -L /usr/lib /usr/share/live/build -type f -name isolinux.bin -print -quit)"
-          VESAMENU="$(find -L /usr/lib /usr/share/live/build -type f -name vesamenu.c32 -print -quit)"
-          test -n "$ISOLINUX_BIN"
-          test -n "$VESAMENU"
+          ISOLINUX_BIN="/usr/lib/ISOLINUX/isolinux.bin"
+          VESAMENU="/usr/lib/syslinux/modules/bios/vesamenu.c32"
+          test -r "$ISOLINUX_BIN"
+          test -r "$VESAMENU"
           sudo install -m 0644 "$ISOLINUX_BIN" /root/isolinux/isolinux.bin
           sudo install -m 0644 "$VESAMENU" /root/isolinux/vesamenu.c32
           for module in ldlinux.c32 libcom32.c32 libutil.c32 libmenu.c32 libgpl.c32; do
-            source="$(find -L /usr/lib /usr/share/live/build -type f -name "$module" -print -quit || true)"
-            if [ -n "$source" ]; then sudo install -m 0644 "$source" "/root/isolinux/$module"; fi
+            for base in /usr/lib/syslinux/modules/bios /usr/lib/syslinux/modules; do
+              if [ -r "$base/$module" ]; then
+                sudo install -m 0644 "$base/$module" "/root/isolinux/$module"
+                break
+              fi
+            done
           done
           sudo test -s /root/isolinux/isolinux.bin
           sudo test -s /root/isolinux/vesamenu.c32
