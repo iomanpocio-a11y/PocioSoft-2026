@@ -1,0 +1,75 @@
+name: Build PocioSoft 2026 ISO
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Debian Live ISO (x86_64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - name: Check out PocioSoft source
+        uses: actions/checkout@v4
+
+      - name: Install live-build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y live-build debootstrap squashfs-tools xorriso
+
+      - name: Configure Debian 13 Live
+        run: |
+          lb config \
+            --distribution trixie \
+            --architectures amd64 \
+            --binary-images iso-hybrid \
+            --archive-areas "main contrib non-free non-free-firmware" \
+            --apt-recommends true \
+            --iso-application "PocioSoft 2026" \
+            --iso-volume "POCIOSOFT_2026"
+
+      - name: Add desktop and utility packages
+        run: |
+          mkdir -p config/package-lists
+          cat > config/package-lists/pociosoft.list.chroot <<'EOF'
+          task-lxqt-desktop
+          firefox-esr
+          network-manager
+          qterminal
+          featherpad
+          ark
+          gvfs
+          gvfs-backends
+          papirus-icon-theme
+          arc-theme
+          fonts-noto
+          fonts-noto-color-emoji
+          sudo
+          curl
+          wget
+          htop
+          calamares
+          EOF
+
+      - name: Build ISO image
+        run: sudo lb build
+
+      - name: Validate generated ISO
+        run: |
+          ISO="$(find . -maxdepth 1 -type f -name '*.iso' -print -quit)"
+          test -n "$ISO"
+          test -s "$ISO"
+          xorriso -indev "$ISO" -toc
+          echo "ISO_PATH=$ISO" >> "$GITHUB_ENV"
+          ls -lh "$ISO"
+
+      - name: Upload bootable ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocioSoft-2026-x64-ISO
+          path: ${{ env.ISO_PATH }}
+          if-no-files-found: error
+          retention-days: 14
