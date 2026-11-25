@@ -73,6 +73,18 @@ jobs:
           amd64-microcode
           EOF
 
+      - name: Prepare ISOLINUX bootloader files
+        run: |
+          set -e
+          ISOLINUX_BIN="$(find /usr/lib -type f -name isolinux.bin -print -quit)"
+          VESAMENU="$(find /usr/lib -type f -name vesamenu.c32 -print -quit)"
+          test -n "$ISOLINUX_BIN"
+          test -n "$VESAMENU"
+          sudo mkdir -p /root/isolinux
+          sudo cp "$ISOLINUX_BIN" /root/isolinux/isolinux.bin
+          sudo cp "$VESAMENU" /root/isolinux/vesamenu.c32
+          ls -l /root/isolinux
+
       - name: Build ISO image
         run: sudo lb build
 
