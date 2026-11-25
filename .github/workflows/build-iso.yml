@@ -83,7 +83,7 @@ jobs:
           sudo mkdir -p /root/isolinux
           sudo cp "$ISOLINUX_BIN" /root/isolinux/isolinux.bin
           sudo cp "$VESAMENU" /root/isolinux/vesamenu.c32
-          ls -l /root/isolinux
+          sudo ls -l /root/isolinux
 
       - name: Build ISO image
         run: sudo lb build
