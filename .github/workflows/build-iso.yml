@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   build:
@@ -109,3 +110,15 @@ jobs:
           path: ${{ env.ISO_PATH }}
           if-no-files-found: error
           retention-days: 14
+
+  auto-rerun:
+    name: Automatically retry failed build (maximum 2 retries)
+    needs: build
+    if: failure() && github.run_attempt < 3
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Re-run failed jobs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+        run: gh run rerun "$RUN_ID" --failed
