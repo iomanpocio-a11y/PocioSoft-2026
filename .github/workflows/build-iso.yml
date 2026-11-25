@@ -33,6 +33,7 @@ jobs:
             --binary-images iso-hybrid \
             --archive-areas "main contrib non-free non-free-firmware" \
             --apt-recommends true \
+            --firmware-chroot false \
             --security false \
             --iso-application "PocioSoft 2026" \
             --iso-volume "POCIOSOFT_2026"
@@ -61,6 +62,13 @@ jobs:
           wget
           htop
           calamares
+          firmware-linux
+          firmware-iwlwifi
+          firmware-realtek
+          firmware-amd-graphics
+          firmware-misc-nonfree
+          intel-microcode
+          amd64-microcode
           EOF
 
       - name: Build ISO image
