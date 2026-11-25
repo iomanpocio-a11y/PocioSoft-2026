@@ -33,12 +33,16 @@ jobs:
             --binary-images iso-hybrid \
             --archive-areas "main contrib non-free non-free-firmware" \
             --apt-recommends true \
+            --security false \
             --iso-application "PocioSoft 2026" \
             --iso-volume "POCIOSOFT_2026"
 
       - name: Add desktop and utility packages
         run: |
-          mkdir -p config/package-lists
+          mkdir -p config/package-lists config/includes.chroot/etc/apt/sources.list.d
+          cat > config/includes.chroot/etc/apt/sources.list.d/debian-security.list <<'EOF'
+          deb http://security.debian.org/debian-security trixie-security main contrib non-free non-free-firmware
+          EOF
           cat > config/package-lists/pociosoft.list.chroot <<'EOF'
           task-lxqt-desktop
           firefox-esr
