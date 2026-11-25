@@ -73,26 +73,25 @@ jobs:
           amd64-microcode
           EOF
 
-      - name: Prepare host ISOLINUX bootloader assets
+      - name: Stage ISOLINUX assets inside live-build chroot
         run: |
           set -euo pipefail
-          # Resolve package-owned paths; do not recursively traverse /usr/lib.
+          mkdir -p config/includes.chroot/root/isolinux
           ISOLINUX_BIN="$(dpkg-query -L isolinux | grep -m1 '/isolinux\.bin$')"
           VESAMENU="$(dpkg-query -L syslinux-common | grep -m1 '/vesamenu\.c32$')"
           test -f "$ISOLINUX_BIN"
           test -f "$VESAMENU"
-          sudo install -D -m 0644 "$ISOLINUX_BIN" /root/isolinux/isolinux.bin
-          sudo install -D -m 0644 "$VESAMENU" /root/isolinux/vesamenu.c32
-          # Copy companion BIOS modules from the package manifest when present.
+          install -m 0644 "$ISOLINUX_BIN" config/includes.chroot/root/isolinux/isolinux.bin
+          install -m 0644 "$VESAMENU" config/includes.chroot/root/isolinux/vesamenu.c32
           for module in ldlinux.c32 libcom32.c32 libutil.c32 libmenu.c32 libgpl.c32; do
             source="$(dpkg-query -L syslinux-common | grep -m1 "/$module$" || true)"
             if [ -n "$source" ] && [ -f "$source" ]; then
-              sudo install -D -m 0644 "$source" "/root/isolinux/$module"
+              install -m 0644 "$source" "config/includes.chroot/root/isolinux/$module"
             fi
           done
-          sudo test -s /root/isolinux/isolinux.bin
-          sudo test -s /root/isolinux/vesamenu.c32
-          sudo ls -l /root/isolinux
+          test -s config/includes.chroot/root/isolinux/isolinux.bin
+          test -s config/includes.chroot/root/isolinux/vesamenu.c32
+          ls -l config/includes.chroot/root/isolinux
 
       - name: Build ISO image
         run: sudo lb build
